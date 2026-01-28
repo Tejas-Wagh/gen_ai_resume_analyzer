@@ -1,32 +1,44 @@
-from io import BytesIO
-from services import get_s3_client
-from pypdf import PdfReader
 import os
-from custom_agents import resume_analyzer_agent, email_agent
-from agents import Runner
+from jose import jwt, JWTError
+from typing import Annotated
+from fastapi import Depends, HTTPException, status as status_code
+from fastapi.security import OAuth2PasswordBearer
+from typing import Annotated
 
-def fetch_pdf_from_s3( key:str):
-    buffer = BytesIO()
-    s3 = get_s3_client()
-    s3.download_fileobj(os.getenv("BUCKET_NAME"), key, buffer)
-    buffer.seek(0)
-    return buffer  
 
-def extract_text_from_pdf(file_obj: BytesIO):
-    reader = PdfReader(file_obj)
+oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/sign-in")
 
-    text = []
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text.append(page_text)
+def create_access_token(id:int, email:str):
+    data = {
+        "sub":email,
+        "id":id
+    }
 
-    return "\n".join(text)
+    token = jwt.encode(data, os.getenv("JWT_SECRET_KEY"))
 
-def generate_response(resume_text):
-    result = Runner.run_sync(resume_analyzer_agent, resume_text)
-    return result.final_output
+    return token
+    
 
-def send_email_notification(message):
-   response = Runner.run_sync(email_agent, message)
-   return response.final_output
+def verify_access_token(token : Annotated[str, Depends(oauth2_bearer)]):
+    
+    try:
+        payload = jwt.decode(token, os.getenv("JWT_SECRET_KEY"))
+
+        email = payload.get('sub')
+        id = payload.get('id')
+
+        if not email or not id:
+            raise HTTPException(status_code=status_code.HTTP_401_UNAUTHORIZED, detail="Could not validate user")
+        
+        return {
+            "email" : email,
+            "id": id
+        }
+    
+    except JWTError:
+        raise HTTPException(status_code=status_code.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
+
+
+
+user_dependancy = Annotated[dict, Depends(verify_access_token)]

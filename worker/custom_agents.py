@@ -1,5 +1,4 @@
-
-from agents import Agent, Runner, function_tool
+from agents import Agent, function_tool
 from prompt import RESUME_ANALYZER_PROMPT, HTML_AGENT_PROMPT
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
@@ -9,17 +8,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 @function_tool
-def sendEmail(message: str, subject: str = "Demo"):
+def sendEmail(message: str, to_email: str, subject: str = "Resume Analysis Complete"):
     """Function Tool to send emails to the user"""
 
     api_key = os.environ.get("SENDGRID_API_KEY")
     from_email = os.environ.get("FROM_EMAIL")
-    to_email = os.environ.get("TO_EMAIL")
 
-    if not api_key or not from_email or not to_email:
+    if not api_key or not from_email:
         return {
             "status": "error",
-            "error": "Missing SENDGRID_API_KEY, FROM_EMAIL or TO_EMAIL env variables."
+            "error": "Missing SENDGRID_API_KEY or FROM_EMAIL env variables."
         }
 
     mail = Mail(
